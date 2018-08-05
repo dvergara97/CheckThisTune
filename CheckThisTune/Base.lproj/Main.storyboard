@@ -28,7 +28,7 @@
                                 <rect key="frame" x="67" y="245" width="240" height="128"/>
                             </imageView>
                             <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="htb-Dv-XRW">
-                                <rect key="frame" x="86" y="286" width="202" height="201"/>
+                                <rect key="frame" x="105" y="266" width="202" height="201"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                             </imageView>
                         </subviews>

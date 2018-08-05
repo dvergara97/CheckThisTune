@@ -32,6 +32,7 @@ class ViewController: UIViewController {
     var mic: AKMicrophone!
     var tracker: AKFrequencyTracker!
     var silence: AKBooster!
+    var angleInDegrees: Double = 45.0
     
     let noteNamesWithSharps = ["A", "A♯", "B", "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A"]
     let noteNamesWithFlats = ["A", "B♭", "B", "C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A"]
@@ -43,6 +44,7 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+        sharpFlatArrow.transform = CGAffineTransform(rotationAngle: (.pi / 4))
         semiCircle.image = UIImage(named: "semi.png")
         sharpFlatArrow.image = UIImage(named: "arrowBox.png")
         semiCircle.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
@@ -75,18 +77,16 @@ class ViewController: UIViewController {
 
     @objc func updateUI() {
         var frequency: Double = getProperFrequency(tracker.frequency)
-        var position: Int = getPosition(frequency)
+        var position: Array<Double> = getPosition(frequency)
 //        noteLabel.text = String(format: "%0.1f", frequency)
-        if (position < 0) {
-            //Placeholder for actual out of tune code
-            position = -(position) - 1
+        if (position.count > 1) {
+            //[low, high]
+            var closest: Double = findClosestNote(position, frequency)
+            position = getPosition(closest)
         }
-        noteLabel.text = noteNamesWithFlats[position]
-        
-        //Note for rotations - The concatenation is adding the angle (in radians) to the current transform matrix.  I then have to overwrite the current transform matrix with the transform matrix I have.  +.pi / 4 radians turns the item clockwise (opposite that of a unit circle)
-        UIView.animate(withDuration: 0.1, animations: {
-            self.sharpFlatArrow.transform = self.sharpFlatArrow.transform.concatenating(CGAffineTransform(rotationAngle: (.pi / 4)))
-        })
+        writeNoteName(Int(position[0]))
+        animateArrow(frequency, Int(position[0]))
+
         noteLabel.textAlignment = .center
         noteLabel.sizeToFit()
     }
@@ -122,26 +122,97 @@ Returns :
 Assumes:
     Array is not empty
 */
-    func getPosition(_ frequency: Double) -> Int {
+    func getPosition(_ frequency: Double) -> Array<Double> {
         //Quickly thrown together.  The general idea should be correct though.
         var start: Int = 0
         var stop: Int = noteFrequencies.count - 1
         var mid: Int = (start + stop) / 2
+        var high: Double = 0.0
+        var low: Double = 0.0
         while (start <= stop) {
             var value: Double = noteFrequencies[mid]
             if (frequency > value) {
                 start = mid + 1
+                low = noteFrequencies[mid]
+                high = noteFrequencies[start]
             }
             else if (frequency < value) {
                 stop = mid - 1
+                low = noteFrequencies[stop]
+                high = noteFrequencies[mid]
             }
             else {
-                return mid
+                return [Double(mid)]
             }
             mid = (start + stop) / 2
         }
         //Invariant - If this point it reached, your frequency is not in the list (and therefor not in tune)
-        return -(mid + 1)
+//        return -(mid + 1)
+        return [low, high]
+        
+    }
+    
+    func convertDegreesToRadians(_ degree: Double) -> Double {
+        //degree = degree in degrees
+        return (degree * .pi / 180)
+    }
+    
+    func writeNoteName(_ position: Int) {
+        noteLabel.text = noteNamesWithFlats[position]
+    }
+
+    func findClosestNote(_ notes: Array<Double>,_ frequency: Double) -> Double {
+        var low: Double = notes[0]
+        var high: Double = notes[1]
+        var mid: Double = (low + high) / 2
+        if ( frequency < mid ) {
+            return low
+        }
+        else {
+            return high
+        }
+    }
+    
+    func animateArrow(_ frequency: Double,_ position: Int) {
+        var changeInAngleInDegrees: Double = 45.0
+        if (frequency != noteFrequencies[position]) {
+            changeInAngleInDegrees = getDesiredAngle(frequency, position)
+            var desiredAngle: Double = 45.0 + changeInAngleInDegrees
+            changeInAngleInDegrees = -angleInDegrees + desiredAngle
+            angleInDegrees += changeInAngleInDegrees
+        }
+        else {
+            changeInAngleInDegrees = -angleInDegrees + 45
+            angleInDegrees = 45.0
+        }
+//        if (desiredAngleInDegrees > 0 && desiredAngleInDegrees != 45) {
+  //          desiredAngleInDegrees += 45
+   //     }
+ //       desiredAngleInDegrees = -angleInDegrees + desiredAngleInDegrees
+//        angleInDegrees += desiredAngleInDegrees
+        var angleInRadians = Float(convertDegreesToRadians(changeInAngleInDegrees))
+        //Note for rotations - The concatenation is adding the angle (in radians) to the current transform matrix.  I then have to overwrite the current transform matrix with the transform matrix I have.  +.pi / 4 radians turns the item clockwise (opposite that of a unit circle)
+               UIView.animate(withDuration: 0.05, animations: {
+                    self.sharpFlatArrow.transform = self.sharpFlatArrow.transform.concatenating(CGAffineTransform(rotationAngle: CGFloat(angleInRadians)))
+                })
+    }
+    
+    func getDesiredAngle(_ frequency: Double,_ position: Int) -> Double {
+        var low: Double = 0.0
+        var high: Double = 0.0
+        var mid: Double = 0.0
+        if (frequency < noteFrequencies[position]) {
+            low = noteFrequencies[position - 1]
+            high = noteFrequencies[position]
+        }
+        else if (frequency > noteFrequencies[position]) {
+            low = noteFrequencies[position]
+            high = noteFrequencies[position + 1]
+        }
+        mid = (low + high) / 2
+        var midDistance: Double = abs(mid - noteFrequencies[position])
+        var frequencyDistance: Double = frequency - noteFrequencies[position]
+        var percentage: Double = frequencyDistance / midDistance
+        return (percentage * 45)
     }
 }
-
